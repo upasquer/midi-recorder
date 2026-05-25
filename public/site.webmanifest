@@ -1,6 +1,6 @@
 {
-    "name": "MIDI Recorder",
-    "short_name": "MIDI Recorder",
+    "name": "My MIDI Recorder",
+    "short_name": "My MIDI Recorder",
     "description": "The easiest way to record MIDI.",
     "icons": [
         {

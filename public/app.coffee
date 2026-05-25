@@ -29,6 +29,13 @@ perspective_rotate_vertically_input = document.getElementById("perspective-rotat
 perspective_distance_input = document.getElementById("perspective-distance-input")
 scale_x_input = document.getElementById("scale-x-input")
 hue_rotate_degrees_input = document.getElementById("hue-rotate-degrees-input")
+note_color_input = document.getElementById("note-color-input")
+presets_select = document.getElementById("presets-select")
+preset_name_input = document.getElementById("preset-name-input")
+preset_save_button = document.getElementById("preset-save-button")
+preset_load_button = document.getElementById("preset-load-button")
+preset_delete_button = document.getElementById("preset-delete-button")
+preset_duplicate_button = document.getElementById("preset-duplicate-button")
 midi_range_left_input = document.getElementById("midi-range-min-input")
 midi_range_right_input = document.getElementById("midi-range-max-input")
 learn_range_or_apply_button = document.getElementById("learn-range-or-apply-button")
@@ -47,6 +54,31 @@ debounce = (func, timeout = 300)->
 	return (...args)->
 		clearTimeout(tid)
 		tid = setTimeout((-> func(...args)), timeout)
+
+hex_to_rgba = (hex, alpha) ->
+	r = parseInt(hex.slice(1, 3), 16)
+	g = parseInt(hex.slice(3, 5), 16)
+	b = parseInt(hex.slice(5, 7), 16)
+	"rgba(#{r}, #{g}, #{b}, #{alpha})"
+
+lighten_hex_color = (hex, amount = 20) ->
+	r = parseInt(hex.slice(1, 3), 16) / 255
+	g = parseInt(hex.slice(3, 5), 16) / 255
+	b = parseInt(hex.slice(5, 7), 16) / 255
+	max = Math.max(r, g, b)
+	min = Math.min(r, g, b)
+	l = (max + min) / 2
+	if max is min
+		h = 0; s = 0
+	else
+		d = max - min
+		s = if l > 0.5 then d / (2 - max - min) else d / (max + min)
+		h = switch max
+			when r then ((g - b) / d + (if g < b then 6 else 0)) / 6
+			when g then ((b - r) / d + 2) / 6
+			when b then ((r - g) / d + 4) / 6
+	l = Math.min(1, l + amount / 100)
+	"hsl(#{(h * 360).toFixed(0)}, #{(s * 100).toFixed(1)}%, #{(l * 100).toFixed(1)}%)"
 
 nanoid = (length = 21) ->
 	id = ''
@@ -71,12 +103,13 @@ last_note_datetime = Date.now()
 visualization_enabled = true
 theme = "white-and-accent-color"
 hue_rotate_degrees = 0
+note_color = "#b3cce6"
 layout = "equal"
-px_per_second = 20
+px_per_second = 190
 note_gravity_direction = "up"
-perspective_rotate_vertically = 0
-perspective_distance = 0
-scale_x = 1
+perspective_rotate_vertically = 25
+perspective_distance = 60
+scale_x = 1.23
 selected_range = [0, 128]
 
 is_learning_range = false
@@ -113,6 +146,8 @@ save_options_immediately = ({update_even_focused_inputs}={})->
 		"midi-range": "#{from_midi_val}..#{to_midi_val}"
 		"theme": theme
 		"hue-rotate": hue_rotate_degrees
+		"note-color": note_color.replace("#", "")
+		"v": "2"
 	option_strings =
 		for key, val of data
 			"#{key}=#{val}"
@@ -145,6 +180,8 @@ load_options = ({update_even_focused_inputs}={})->
 		key = key.trim()
 		val = val.trim()
 		data[key] = val
+	# Si la version du hash ne correspond pas, on ignore tout (nouveaux défauts appliqués)
+	data = {} unless data["v"] is "2"
 	
 	# For text based inputs, including number inputs,
 	# in order to let you backspace and type a new value,
@@ -190,21 +227,25 @@ load_options = ({update_even_focused_inputs}={})->
 		hue_rotate_degrees = parseFloat(data["hue-rotate"])
 		if update_even_focused_inputs or document.activeElement isnt hue_rotate_degrees_input
 			hue_rotate_degrees_input.value = hue_rotate_degrees
+	if data["note-color"]
+		note_color = "##{data["note-color"]}"
+		note_color_input.value = note_color
 
 update_options_from_inputs = ->
 	visualization_enabled = visualization_enabled_checkbox.checked
 	set_selected_range([midi_range_left_input.value, midi_range_right_input.value], true)
-	px_per_second = parseFloat(px_per_second_input.value) || 20
+	px_per_second = parseFloat(px_per_second_input.value) || 190
 	hue_rotate_degrees = parseFloat(hue_rotate_degrees_input.value) || 0
+	note_color = note_color_input.value or "#ffffff"
 	note_gravity_direction = note_gravity_direction_select.value
 	layout = layout_radio_buttons.find((radio)=> radio.checked)?.value ? "equal"
 	theme = theme_select.value
 	
-	perspective_rotate_vertically = perspective_rotate_vertically_input.value || 0
-	perspective_distance = perspective_distance_input.value || 100
+	perspective_rotate_vertically = perspective_rotate_vertically_input.value || 25
+	perspective_distance = perspective_distance_input.value || 60
 	# canvas.style.transform = "translate(0, -20px) perspective(50vw) rotateX(-10deg) scale(0.9, 1)"
 	# canvas.style.transformOrigin = "50% 0%"
-	scale_x = scale_x_input.value || 1
+	scale_x = scale_x_input.value || 1.23
 	canvas.style.transform = "perspective(#{perspective_distance}vw) rotateX(-#{perspective_rotate_vertically}deg) scaleX(#{scale_x})"
 	canvas.style.transformOrigin = "50% 0%"
 
@@ -225,6 +266,7 @@ for input_element in [
 	perspective_distance_input
 	scale_x_input
 	hue_rotate_degrees_input
+	note_color_input
 ]
 	input_element.oninput = update_options_from_inputs
 	# in case you backspaced an input, it shouldn't change the field while focused, but should when unfocused if still empty
@@ -236,6 +278,76 @@ for input_element in [
 
 load_options({update_even_focused_inputs: true})
 update_options_from_inputs()
+
+document.getElementById("reset-defaults-link")?.addEventListener "click", (e)->
+	e.preventDefault()
+	history.replaceState(null, null, location.pathname)
+	location.reload()
+
+# === Presets ===
+PRESETS_KEY = "midi-recorder-presets"
+presets = []
+
+render_presets_select = ->
+	presets_select.innerHTML = ""
+	placeholder = document.createElement("option")
+	placeholder.value = ""
+	placeholder.disabled = true
+	placeholder.selected = true
+	placeholder.textContent = "— Choisir un preset —"
+	presets_select.appendChild(placeholder)
+	for preset, i in presets
+		option = document.createElement("option")
+		option.value = i
+		option.textContent = preset.name
+		presets_select.appendChild(option)
+
+load_presets_from_storage = ->
+	localforage.getItem(PRESETS_KEY).then (stored) ->
+		presets = stored or []
+		render_presets_select()
+
+save_presets_to_storage = ->
+	localforage.setItem(PRESETS_KEY, presets)
+
+load_presets_from_storage()
+
+preset_save_button.onclick = ->
+	name = preset_name_input.value.trim()
+	return unless name
+	current_hash = location.hash.replace(/^#/, "")
+	presets.push({name, hash: current_hash})
+	save_presets_to_storage()
+	render_presets_select()
+	presets_select.value = presets.length - 1
+	preset_name_input.value = ""
+
+preset_load_button.onclick = ->
+	idx = parseInt(presets_select.value)
+	return if isNaN(idx)
+	preset = presets[idx]
+	return unless preset
+	history.replaceState(null, null, "##{preset.hash}")
+	load_options({update_even_focused_inputs: true})
+	update_options_from_inputs()
+
+preset_delete_button.onclick = ->
+	idx = parseInt(presets_select.value)
+	return if isNaN(idx)
+	presets.splice(idx, 1)
+	save_presets_to_storage()
+	render_presets_select()
+
+preset_duplicate_button.onclick = ->
+	idx = parseInt(presets_select.value)
+	return if isNaN(idx)
+	preset = presets[idx]
+	return unless preset
+	copy = {name: "#{preset.name} (copie)", hash: preset.hash}
+	presets.splice(idx + 1, 0, copy)
+	save_presets_to_storage()
+	render_presets_select()
+	presets_select.value = idx + 1
 
 addEventListener "hashchange", ->
 	load_options({update_even_focused_inputs: not hashchange_is_new_history_entry})
@@ -954,12 +1066,6 @@ do animate = ->
 		x2 = (x2 - midi_x1) * midi_to_canvas_scalar
 		{x: x1, w: x2 - x1, is_accidental}
 
-	for sustain_period in global_sustain_periods
-		start_y = (sustain_period.start_time - now) / 1000 * px_per_second
-		end_y = ((sustain_period.end_time ? now) - now) / 1000 * px_per_second
-		ctx.fillStyle = "rgba(128, 128, 128, 0.3)"
-		ctx.fillRect(0, start_y, pitch_axis_canvas_length, end_y - start_y)
-
 	for instrument_select in global_instrument_selects
 		y = (instrument_select.time - now) / 1000 * px_per_second
 		instrument_name = JZZ.MIDI.programName(instrument_select.value, instrument_select.bank_msb, instrument_select.bank_lsb)
@@ -997,36 +1103,11 @@ do animate = ->
 		{x, w, is_accidental} = get_note_location_canvas_space(note.key, pitch_axis_canvas_length)
 		ctx.globalAlpha = note.velocity / 127
 		unless note.length?
-			# for ongoing (held) notes, display a bar at the bottom like a key
-			# TODO: maybe bend this?
-			ctx.fillStyle =
-			switch theme
-				when "classic", "classic-gaudy"
-					"#a00"
-				when "white"
-					"rgba(255, 255, 255, 0.2)"
-				when "white-and-accent-color"
-					if is_accidental
-						"rgba(255, 0, 0, 0.5)"
-					else
-						"rgba(255, 255, 255, 0.2)"
+			# note actuellement jouée : rappel très discret sous la ligne de départ
+			ctx.fillStyle = hex_to_rgba(note_color, 0.22)
 			ctx.fillRect(x, 2, w, 50000)
-		ctx.fillStyle =
-			switch theme
-				when "classic"
-					if note.length then "yellow" else "lime"
-				when "classic-gaudy"
-					if is_accidental
-						if note.length then "#f79" else "aqua"
-					else
-						if note.length then "yellow" else "lime"
-				when "white"
-					"white"
-				when "white-and-accent-color"
-					if is_accidental
-						"rgb(255, 0, 0)"
-					else
-						"white"
+		# note déjà jouée → couleur principale ; note en cours → légèrement plus claire
+		ctx.fillStyle = if note.length then note_color else lighten_hex_color(note_color, 15)
 		smooth = yes
 		if smooth
 			ctx.beginPath()
@@ -1054,9 +1135,6 @@ do animate = ->
 
 			ctx.closePath()
 			ctx.fill()
-			ctx.globalAlpha = 0.5
-			ctx.strokeStyle = ctx.fillStyle
-			ctx.stroke()
 
 			# debug
 			# ctx.globalAlpha = 1

@@ -3,7 +3,7 @@
 
 <head>
 	<meta charset="utf-8" />
-	<title>MIDI Recorder</title>
+	<title>My MIDI Recorder</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 
 	<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
@@ -11,8 +11,8 @@
 	<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 	<link rel="manifest" href="/site.webmanifest">
 	<link rel="mask-icon" href="/safari-pinned-tab.svg" color="#d30000">
-	<meta name="apple-mobile-web-app-title" content="MIDI Recorder">
-	<meta name="application-name" content="MIDI Recorder">
+	<meta name="apple-mobile-web-app-title" content="My MIDI Recorder">
+	<meta name="application-name" content="My MIDI Recorder">
 	<meta name="msapplication-TileColor" content="#b91d47">
 	<meta name="theme-color" content="#ff0">
 
@@ -27,7 +27,7 @@
 		<div data-modal-document>
 			<!-- 4rem should match CSS -->
 			<img src="./favicon.svg" alt="Logo" style="float: left; height: 4rem; margin-right: 1em;" />
-			<h1>MIDI Recorder</h1>
+				<h1>My MIDI Recorder</h1>
 			<h2>The easiest way to record MIDI.</h2>
 			<h3>Features:</h3>
 			<span class="visually-hidden">.</span> <!-- so ChromeVox pronounces "Live" with an I sound -->
@@ -92,6 +92,21 @@
 	<div id="settings-modal-content" hidden data-modal>
 		<div data-modal-document>
 			<h3>Visualization Settings</h3>
+			<p style="margin: 0 0 0.8em; font-size: 0.85em;"><a href="#" id="reset-defaults-link" style="color: #aaa;">Reset to defaults</a></p>
+
+			<h3 style="margin-top: 1.2em;">Presets</h3>
+			<div class="control-row" style="display: flex; align-items: center; gap: 0.5em; flex-wrap: wrap; margin-bottom: 0.4em;">
+				<select id="presets-select" style="flex: 1; min-width: 140px;">
+					<option value="" disabled selected>— Choisir un preset —</option>
+				</select>
+				<button class="button-functional" id="preset-load-button"><span class="button-visual">Charger</span></button>
+				<button class="button-functional" id="preset-duplicate-button"><span class="button-visual">Dupliquer</span></button>
+				<button class="button-functional" id="preset-delete-button"><span class="button-visual">Supprimer</span></button>
+			</div>
+			<div class="control-row" style="display: flex; align-items: center; gap: 0.5em; flex-wrap: wrap; margin-bottom: 1em;">
+				<input type="text" id="preset-name-input" placeholder="Nom du preset..." style="flex: 1; min-width: 140px;" />
+				<button class="button-functional" id="preset-save-button"><span class="button-visual">Sauvegarder les réglages actuels</span></button>
+			</div>
 			<!-- <h3>Settings</h3>
 			<fieldset id="viz-controls" class="ui-section">
 				<legend>Visualization</legend> -->
@@ -140,9 +155,7 @@
 						</label>
 					</fieldset>
 				</div>
-				<div class="control-row disable-if-viz-disabled">
-					<label>
-						Theme:
+				<div class="control-row disable-if-viz-disabled" hidden>
 						<select id="theme-select">
 							<option value="classic">Classic</option>
 							<option value="classic-gaudy">Classic Gaudy</option>
@@ -158,8 +171,15 @@
 				</div>
 				<div class="control-row disable-if-viz-disabled">
 					<label>
+						Note color:
+						<input type="color" id="note-color-input" value="#b3cce6" />
+					</label>
+					<span style="color: #aaa; font-size: 0.9em; margin-left: 0.5em;">(la note actuellement jouée sera légèrement plus claire)</span>
+				</div>
+				<div class="control-row disable-if-viz-disabled">
+					<label>
 						Notes move at
-						<input type="number" value="20" min="1" id="note-gravity-pixels-per-second-input" aria-label="note speed in pixels per second" />
+						<input type="number" value="190" min="1" id="note-gravity-pixels-per-second-input" aria-label="note speed in pixels per second" />
 						pixels per second,
 					</label>
 					<label>
@@ -229,15 +249,15 @@
 					</svg>
 					<label>
 						3D Rotate:
-						<input type="number" value="0" min="0" max="360" id="perspective-rotate-vertically-input" />
+						<input type="number" value="25" min="0" max="360" id="perspective-rotate-vertically-input" />
 					</label>
 					<label>
 						Camera Distance:
-						<input type="number" value="100" min="0" max="1000" id="perspective-distance-input" />
+						<input type="number" value="60" min="0" max="1000" id="perspective-distance-input" />
 					</label>
 					<label>
 						Scale X:
-						<input type="number" value="1" min="0.1" max="2" step="0.01" id="scale-x-input" />
+						<input type="number" value="1.23" min="0.1" max="2" step="0.01" id="scale-x-input" />
 					</label>
 				</div>
 			<!-- </fieldset> -->
